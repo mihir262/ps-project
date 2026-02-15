@@ -1,6 +1,7 @@
 import yfinance as yf
 from datetime import datetime, timedelta
 import pandas as pd
+import time
 
 symbol = "ANGELONE.NS"
 end_date = datetime.now()
@@ -17,6 +18,8 @@ daily_data.to_csv("angelone_daily_365d.csv")
 print(f"Daily data: {len(daily_data)} records saved to 'angelone_daily_365d.csv'")
 print(daily_data.tail())
 
+time.sleep(2)
+
 # 2. Fetch 120 weeks of weekly data
 start_date_weekly = end_date - timedelta(weeks=120)
 
@@ -29,6 +32,8 @@ weekly_data.to_csv("angelone_weekly_120w.csv")
 
 print(f"Weekly data: {len(weekly_data)} records saved to 'angelone_weekly_120w.csv'")
 print(weekly_data.tail())
+
+time.sleep(2)
 
 # 3. Fetch 60 months of monthly data
 start_date_monthly = end_date - timedelta(days=60 * 30)
