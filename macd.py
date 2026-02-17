@@ -135,54 +135,6 @@ def plot_candlestick(df, timeframe):
     axes[0].grid(True, alpha=0.3, linestyle="--")
     macd_ax.grid(True, alpha=0.3, linestyle="--")
     
-    # Add cursor tracking
-    def on_move(event):
-        if event.inaxes in [axes[0], axes[4]]:
-            if event.inaxes == axes[0]:
-                # Price panel
-                try:
-                    x_idx = int(round(event.xdata))
-                    if 0 <= x_idx < len(df):
-                        date = df.index[x_idx]
-                        open_val = df["Open"].iloc[x_idx]
-                        high_val = df["High"].iloc[x_idx]
-                        low_val = df["Low"].iloc[x_idx]
-                        close_val = df["Close"].iloc[x_idx]
-                        
-                        signal_type = ""
-                        if bullish_crossover.iloc[x_idx]:
-                            signal_type = " | BULLISH CROSSOVER"
-                        elif bearish_crossover.iloc[x_idx]:
-                            signal_type = " |  BEARISH CROSSOVER"
-                        
-                        info_text = f"Date: {date.strftime('%Y-%m-%d')} | O: {open_val:.2f} | H: {high_val:.2f} | L: {low_val:.2f} | C: {close_val:.2f}{signal_type}"
-                        fig.suptitle(f"{title}\n{info_text}", fontsize=16, y=0.98)
-                except:
-                    pass
-            elif event.inaxes == macd_ax:
-                # MACD panel
-                try:
-                    x_idx = int(round(event.xdata))
-                    if 0 <= x_idx < len(df):
-                        date = df.index[x_idx]
-                        macd_val = macd.iloc[x_idx]
-                        signal_val = signal_line.iloc[x_idx]
-                        hist_val = histogram.iloc[x_idx]
-                        
-                        signal_type = ""
-                        if bullish_crossover.iloc[x_idx]:
-                            signal_type = " | BULLISH CROSSOVER"
-                        elif bearish_crossover.iloc[x_idx]:
-                            signal_type = " | BEARISH CROSSOVER"
-                        
-                        info_text = f"Date: {date.strftime('%Y-%m-%d')} | MACD: {macd_val:.3f} | Signal: {signal_val:.3f} | Hist: {hist_val:.3f}{signal_type}"
-                        fig.suptitle(f"{title}\n{info_text}", fontsize=16, y=0.98)
-                except:
-                    pass
-            fig.canvas.draw_idle()
-    
-    fig.canvas.mpl_connect("motion_notify_event", on_move)
-    
     # Add MACD zero line for reference
     macd_ax.axhline(0, color="black", linewidth=1, linestyle="--", alpha=0.5)
     
