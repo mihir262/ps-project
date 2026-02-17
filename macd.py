@@ -1,7 +1,6 @@
 import mplfinance as mpf
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
 
 # Load data
 print("Loading data...")
@@ -38,17 +37,19 @@ def calculate_macd(df, fast=12, slow=26, signal=9):
     signal_line = macd.ewm(span=signal, adjust=False).mean()
     histogram = macd - signal_line
     
-    # Detect crossovers - use the histogram sign change for accuracy
+    # Detect crossovers by checking MACD vs Signal line directly
     bullish_crossover = pd.Series(index=df.index, data=False)
     bearish_crossover = pd.Series(index=df.index, data=False)
     
-    for i in range(1, len(histogram)):
-        # Bullish: histogram changes from negative to positive
-        if histogram.iloc[i-1] <= 0 and histogram.iloc[i] > 0:
-            bullish_crossover.iloc[i] = True
-        # Bearish: histogram changes from positive to negative
-        elif histogram.iloc[i-1] >= 0 and histogram.iloc[i] < 0:
-            bearish_crossover.iloc[i] = True
+    for i in range(1, len(macd)):
+        # Bullish: MACD crosses above signal line  
+        # Mark at the bar where crossover completes
+        if macd.iloc[i-1] <= signal_line.iloc[i-1] and macd.iloc[i] > signal_line.iloc[i]:
+            bullish_crossover.iloc[i-1] = True
+        # Bearish: MACD crosses below signal line
+        # Mark at the bar where crossover completes  
+        elif macd.iloc[i-1] >= signal_line.iloc[i-1] and macd.iloc[i] < signal_line.iloc[i]:
+            bearish_crossover.iloc[i-1] = True
     
     return macd, signal_line, histogram, bullish_crossover, bearish_crossover
 
