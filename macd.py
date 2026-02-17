@@ -119,11 +119,12 @@ def plot_candlestick(df, timeframe):
     # axes[0] = price panel, axes[2] = volume panel, axes[4] = MACD panel
     macd_ax = axes[4]
     
-    # Add legend to MACD panel - positioned outside the plot area
+    # Add legend horizontally below the plot area
     macd_ax.legend(
         ["MACD Line (12,26)", "Signal Line (9)", "Histogram", "Bullish Crossover ▲", "Bearish Crossover ▼"],
-        loc="upper left",
-        bbox_to_anchor=(1.01, 1),
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.4),
+        ncol=5,
         fontsize=11,
         frameon=True,
         fancybox=True,
