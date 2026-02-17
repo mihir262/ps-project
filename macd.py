@@ -1,5 +1,7 @@
 import mplfinance as mpf
 import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 
 # Load data
 print("Loading data...")
@@ -27,6 +29,29 @@ print(f"1. Daily data: {len(daily_df)} records")
 print(f"2. Weekly data: {len(weekly_df)} records")
 print(f"3. Monthly data: {len(monthly_df)} records")
 
+
+# Calculate MACD
+def calculate_macd(df, fast=12, slow=26, signal=9):
+    exp1 = df["Close"].ewm(span=fast, adjust=False).mean()
+    exp2 = df["Close"].ewm(span=slow, adjust=False).mean()
+    macd = exp1 - exp2
+    signal_line = macd.ewm(span=signal, adjust=False).mean()
+    histogram = macd - signal_line
+    
+    # Detect crossovers - use the histogram sign change for accuracy
+    bullish_crossover = pd.Series(index=df.index, data=False)
+    bearish_crossover = pd.Series(index=df.index, data=False)
+    
+    for i in range(1, len(histogram)):
+        # Bullish: histogram changes from negative to positive
+        if histogram.iloc[i-1] <= 0 and histogram.iloc[i] > 0:
+            bullish_crossover.iloc[i] = True
+        # Bearish: histogram changes from positive to negative
+        elif histogram.iloc[i-1] >= 0 and histogram.iloc[i] < 0:
+            bearish_crossover.iloc[i] = True
+    
+    return macd, signal_line, histogram, bullish_crossover, bearish_crossover
+
 # Enhanced style for projector visibility
 style = mpf.make_mpf_style(
     base_mpf_style="charles",
@@ -46,16 +71,74 @@ style = mpf.make_mpf_style(
 
 # Plotting function
 def plot_candlestick(df, timeframe):
-    title = f"ANGELONE {timeframe} Candlestick Chart"
-    mpf.plot(
+    title = f"ANGELONE {timeframe} Candlestick Chart with MACD"
+    
+    # Calculate MACD
+    macd, signal_line, histogram, bullish_crossover, bearish_crossover = calculate_macd(df)
+    
+    # Create crossover scatter data for MACD panel
+    bullish_points_macd = macd.copy()
+    bullish_points_macd[~bullish_crossover] = float('nan')
+    
+    bearish_points_macd = macd.copy()
+    bearish_points_macd[~bearish_crossover] = float('nan')
+    
+    # Create crossover scatter data for Price panel (at candle lows/highs)
+    bullish_points_price = df["Low"].copy()
+    bullish_points_price[~bullish_crossover] = float('nan')
+    
+    bearish_points_price = df["High"].copy()
+    bearish_points_price[~bearish_crossover] = float('nan')
+    
+    # Create additional plots for MACD
+    apds = [
+        # Price panel markers (panel 0)
+        mpf.make_addplot(bullish_points_price, panel=0, type="scatter", markersize=150, marker="^", color="green", alpha=0.6),
+        mpf.make_addplot(bearish_points_price, panel=0, type="scatter", markersize=150, marker="v", color="red", alpha=0.6),
+        # MACD panel
+        mpf.make_addplot(macd, panel=2, color="blue", ylabel="MACD", label="MACD Line"),
+        mpf.make_addplot(signal_line, panel=2, color="red", label="Signal Line"),
+        mpf.make_addplot(histogram, panel=2, type="bar", color="gray", alpha=0.5, label="Histogram"),
+        mpf.make_addplot(bullish_points_macd, panel=2, type="scatter", markersize=100, marker="^", color="green", alpha=0.6, label="Bullish Crossover"),
+        mpf.make_addplot(bearish_points_macd, panel=2, type="scatter", markersize=100, marker="v", color="red", alpha=0.6, label="Bearish Crossover"),
+    ]
+    
+    # Plot with returnfig to customize further
+    fig, axes = mpf.plot(
         df,
         type="candle",
         style=style,
         title=title,
         ylabel="Price (INR)",
         volume=True,
+        addplot=apds,
         figsize=(18, 10),
+        returnfig=True,
     )
+    
+    # axes[0] = price panel, axes[2] = volume panel, axes[4] = MACD panel
+    macd_ax = axes[4]
+    
+    # Add legend horizontally below the plot area
+    macd_ax.legend(
+        ["MACD Line (12,26)", "Signal Line (9)", "Histogram", "Bullish Crossover ▲", "Bearish Crossover ▼"],
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.4),
+        ncol=5,
+        fontsize=11,
+        frameon=True,
+        fancybox=True,
+        shadow=True,
+    )
+    
+    # Add grid for better readability
+    axes[0].grid(True, alpha=0.3, linestyle="--")
+    macd_ax.grid(True, alpha=0.3, linestyle="--")
+    
+    # Add MACD zero line for reference
+    macd_ax.axhline(0, color="black", linewidth=1, linestyle="--", alpha=0.5)
+    
+    plt.show()
 
 
 # Menu to choose timeframe
