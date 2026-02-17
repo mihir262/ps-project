@@ -38,16 +38,16 @@ def calculate_macd(df, fast=12, slow=26, signal=9):
     signal_line = macd.ewm(span=signal, adjust=False).mean()
     histogram = macd - signal_line
     
-    # Detect crossovers
+    # Detect crossovers - use the histogram sign change for accuracy
     bullish_crossover = pd.Series(index=df.index, data=False)
     bearish_crossover = pd.Series(index=df.index, data=False)
     
-    for i in range(1, len(macd)):
-        # Bullish: MACD crosses above Signal
-        if macd.iloc[i] > signal_line.iloc[i] and macd.iloc[i-1] <= signal_line.iloc[i-1]:
+    for i in range(1, len(histogram)):
+        # Bullish: histogram changes from negative to positive
+        if histogram.iloc[i-1] <= 0 and histogram.iloc[i] > 0:
             bullish_crossover.iloc[i] = True
-        # Bearish: MACD crosses below Signal
-        elif macd.iloc[i] < signal_line.iloc[i] and macd.iloc[i-1] >= signal_line.iloc[i-1]:
+        # Bearish: histogram changes from positive to negative
+        elif histogram.iloc[i-1] >= 0 and histogram.iloc[i] < 0:
             bearish_crossover.iloc[i] = True
     
     return macd, signal_line, histogram, bullish_crossover, bearish_crossover
@@ -76,20 +76,31 @@ def plot_candlestick(df, timeframe):
     # Calculate MACD
     macd, signal_line, histogram, bullish_crossover, bearish_crossover = calculate_macd(df)
     
-    # Create crossover scatter data
-    bullish_points = macd.copy()
-    bullish_points[~bullish_crossover] = float('nan')
+    # Create crossover scatter data for MACD panel
+    bullish_points_macd = macd.copy()
+    bullish_points_macd[~bullish_crossover] = float('nan')
     
-    bearish_points = macd.copy()
-    bearish_points[~bearish_crossover] = float('nan')
+    bearish_points_macd = macd.copy()
+    bearish_points_macd[~bearish_crossover] = float('nan')
+    
+    # Create crossover scatter data for Price panel (at candle lows/highs)
+    bullish_points_price = df["Low"].copy()
+    bullish_points_price[~bullish_crossover] = float('nan')
+    
+    bearish_points_price = df["High"].copy()
+    bearish_points_price[~bearish_crossover] = float('nan')
     
     # Create additional plots for MACD
     apds = [
+        # Price panel markers (panel 0)
+        mpf.make_addplot(bullish_points_price, panel=0, type="scatter", markersize=150, marker="^", color="green", alpha=0.6),
+        mpf.make_addplot(bearish_points_price, panel=0, type="scatter", markersize=150, marker="v", color="red", alpha=0.6),
+        # MACD panel
         mpf.make_addplot(macd, panel=2, color="blue", ylabel="MACD", label="MACD Line"),
         mpf.make_addplot(signal_line, panel=2, color="red", label="Signal Line"),
         mpf.make_addplot(histogram, panel=2, type="bar", color="gray", alpha=0.5, label="Histogram"),
-        mpf.make_addplot(bullish_points, panel=2, type="scatter", markersize=100, marker="^", color="green", label="Bullish Crossover"),
-        mpf.make_addplot(bearish_points, panel=2, type="scatter", markersize=100, marker="v", color="red", label="Bearish Crossover"),
+        mpf.make_addplot(bullish_points_macd, panel=2, type="scatter", markersize=100, marker="^", color="green", alpha=0.6, label="Bullish Crossover"),
+        mpf.make_addplot(bearish_points_macd, panel=2, type="scatter", markersize=100, marker="v", color="red", alpha=0.6, label="Bearish Crossover"),
     ]
     
     # Plot with returnfig to customize further
@@ -108,11 +119,12 @@ def plot_candlestick(df, timeframe):
     # axes[0] = price panel, axes[2] = volume panel, axes[4] = MACD panel
     macd_ax = axes[4]
     
-    # Add legend to MACD panel
+    # Add legend to MACD panel - positioned outside the plot area
     macd_ax.legend(
         ["MACD Line (12,26)", "Signal Line (9)", "Histogram", "Bullish Crossover ▲", "Bearish Crossover ▼"],
         loc="upper left",
-        fontsize=12,
+        bbox_to_anchor=(1.01, 1),
+        fontsize=11,
         frameon=True,
         fancybox=True,
         shadow=True,
@@ -136,7 +148,13 @@ def plot_candlestick(df, timeframe):
                         low_val = df["Low"].iloc[x_idx]
                         close_val = df["Close"].iloc[x_idx]
                         
-                        info_text = f"Date: {date.strftime('%Y-%m-%d')} | O: {open_val:.2f} | H: {high_val:.2f} | L: {low_val:.2f} | C: {close_val:.2f}"
+                        signal_type = ""
+                        if bullish_crossover.iloc[x_idx]:
+                            signal_type = " | BULLISH CROSSOVER"
+                        elif bearish_crossover.iloc[x_idx]:
+                            signal_type = " |  BEARISH CROSSOVER"
+                        
+                        info_text = f"Date: {date.strftime('%Y-%m-%d')} | O: {open_val:.2f} | H: {high_val:.2f} | L: {low_val:.2f} | C: {close_val:.2f}{signal_type}"
                         fig.suptitle(f"{title}\n{info_text}", fontsize=16, y=0.98)
                 except:
                     pass
@@ -152,9 +170,9 @@ def plot_candlestick(df, timeframe):
                         
                         signal_type = ""
                         if bullish_crossover.iloc[x_idx]:
-                            signal_type = " | 🟢 BULLISH CROSSOVER"
+                            signal_type = " | BULLISH CROSSOVER"
                         elif bearish_crossover.iloc[x_idx]:
-                            signal_type = " | 🔴 BEARISH CROSSOVER"
+                            signal_type = " | BEARISH CROSSOVER"
                         
                         info_text = f"Date: {date.strftime('%Y-%m-%d')} | MACD: {macd_val:.3f} | Signal: {signal_val:.3f} | Hist: {hist_val:.3f}{signal_type}"
                         fig.suptitle(f"{title}\n{info_text}", fontsize=16, y=0.98)
