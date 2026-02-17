@@ -1,5 +1,7 @@
 import mplfinance as mpf
 import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 
 # Load data
 print("Loading data...")
@@ -27,6 +29,16 @@ print(f"1. Daily data: {len(daily_df)} records")
 print(f"2. Weekly data: {len(weekly_df)} records")
 print(f"3. Monthly data: {len(monthly_df)} records")
 
+
+# Calculate MACD
+def calculate_macd(df, fast=12, slow=26, signal=9):
+    exp1 = df["Close"].ewm(span=fast, adjust=False).mean()
+    exp2 = df["Close"].ewm(span=slow, adjust=False).mean()
+    macd = exp1 - exp2
+    signal_line = macd.ewm(span=signal, adjust=False).mean()
+    histogram = macd - signal_line
+    return macd, signal_line, histogram
+
 # Enhanced style for projector visibility
 style = mpf.make_mpf_style(
     base_mpf_style="charles",
@@ -46,16 +58,88 @@ style = mpf.make_mpf_style(
 
 # Plotting function
 def plot_candlestick(df, timeframe):
-    title = f"ANGELONE {timeframe} Candlestick Chart"
-    mpf.plot(
+    title = f"ANGELONE {timeframe} Candlestick Chart with MACD"
+    
+    # Calculate MACD
+    macd, signal_line, histogram = calculate_macd(df)
+    
+    # Create additional plots for MACD
+    apds = [
+        mpf.make_addplot(macd, panel=2, color="blue", ylabel="MACD", label="MACD Line"),
+        mpf.make_addplot(signal_line, panel=2, color="red", label="Signal Line"),
+        mpf.make_addplot(histogram, panel=2, type="bar", color="gray", alpha=0.5, label="Histogram"),
+    ]
+    
+    # Plot with returnfig to customize further
+    fig, axes = mpf.plot(
         df,
         type="candle",
         style=style,
         title=title,
         ylabel="Price (INR)",
         volume=True,
+        addplot=apds,
         figsize=(18, 10),
+        returnfig=True,
     )
+    
+    # axes[0] = price panel, axes[2] = volume panel, axes[4] = MACD panel
+    macd_ax = axes[4]
+    
+    # Add legend to MACD panel
+    macd_ax.legend(
+        ["MACD Line (12,26)", "Signal Line (9)", "Histogram"],
+        loc="upper left",
+        fontsize=12,
+        frameon=True,
+        fancybox=True,
+        shadow=True,
+    )
+    
+    # Add grid for better readability
+    axes[0].grid(True, alpha=0.3, linestyle="--")
+    macd_ax.grid(True, alpha=0.3, linestyle="--")
+    
+    # Add cursor tracking
+    def on_move(event):
+        if event.inaxes in [axes[0], axes[4]]:
+            if event.inaxes == axes[0]:
+                # Price panel
+                try:
+                    x_idx = int(round(event.xdata))
+                    if 0 <= x_idx < len(df):
+                        date = df.index[x_idx]
+                        open_val = df["Open"].iloc[x_idx]
+                        high_val = df["High"].iloc[x_idx]
+                        low_val = df["Low"].iloc[x_idx]
+                        close_val = df["Close"].iloc[x_idx]
+                        
+                        info_text = f"Date: {date.strftime('%Y-%m-%d')} | O: {open_val:.2f} | H: {high_val:.2f} | L: {low_val:.2f} | C: {close_val:.2f}"
+                        fig.suptitle(f"{title}\n{info_text}", fontsize=16, y=0.98)
+                except:
+                    pass
+            elif event.inaxes == macd_ax:
+                # MACD panel
+                try:
+                    x_idx = int(round(event.xdata))
+                    if 0 <= x_idx < len(df):
+                        date = df.index[x_idx]
+                        macd_val = macd.iloc[x_idx]
+                        signal_val = signal_line.iloc[x_idx]
+                        hist_val = histogram.iloc[x_idx]
+                        
+                        info_text = f"Date: {date.strftime('%Y-%m-%d')} | MACD: {macd_val:.3f} | Signal: {signal_val:.3f} | Hist: {hist_val:.3f}"
+                        fig.suptitle(f"{title}\n{info_text}", fontsize=16, y=0.98)
+                except:
+                    pass
+            fig.canvas.draw_idle()
+    
+    fig.canvas.mpl_connect("motion_notify_event", on_move)
+    
+    # Add MACD zero line for reference
+    macd_ax.axhline(0, color="black", linewidth=1, linestyle="--", alpha=0.5)
+    
+    plt.show()
 
 
 # Menu to choose timeframe
